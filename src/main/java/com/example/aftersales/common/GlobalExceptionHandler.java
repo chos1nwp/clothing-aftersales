@@ -3,10 +3,12 @@ package com.example.aftersales.common;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
@@ -32,10 +34,22 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(ApiResponse.fail(400, "图片文件过大，单张不得超过 5MB"));
     }
 
+    /** 路径参数类型不对（例如 /api/aftersales/abc）属于客户端错误，不能算服务端故障。 */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity.badRequest().body(ApiResponse.fail(400, "地址里的「" + ex.getName() + "」不合法，请重新进入页面"));
+    }
+
+    /** 请求体不是合法 JSON 或缺必填字段时给出可读提示，前端能直接把这句话显示给用户。 */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnreadable(HttpMessageNotReadableException ex) {
+        return ResponseEntity.badRequest().body(ApiResponse.fail(400, "请求内容格式不正确，请刷新页面后重试"));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleOther(Exception ex) {
         log.error("未处理异常", ex);
         return ResponseEntity.internalServerError()
-                .body(ApiResponse.fail(500, "系统繁忙，请稍后重试：" + ex.getClass().getSimpleName()));
+                .body(ApiResponse.fail(500, "系统繁忙，请稍后重试"));
     }
 }
