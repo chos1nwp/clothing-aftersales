@@ -13,10 +13,14 @@ post() { curl -s -b "$1" -c "$1" -X POST -H 'Content-Type: application/json; cha
 get() { curl -s -b "$1" "$BASE$2"; }
 msg() { node -e 'let s=require("fs").readFileSync(0,"utf8");let d=JSON.parse(s);console.log("["+d.code+"] "+d.message)'; }
 
-step "重置演示数据"
-DB_PASS=$(grep -o 'AFTERSALES_DB_PASSWORD=.*' application-local.properties | cut -d= -f2-)
-MYSQL_PWD="$DB_PASS" mysql -u aftersales --default-character-set=utf8mb4 clothing_aftersales < sql/data.sql 2>/dev/null \
-  && echo "  sql/data.sql 已重新执行" || echo "  重置失败：请检查 MySQL"
+step "重置演示数据（SKIP_RESET=1 可保留上一条链路的数据）"
+if [ -z "${SKIP_RESET:-}" ]; then
+  DB_PASS=$(grep -o 'AFTERSALES_DB_PASSWORD=.*' application-local.properties | cut -d= -f2-)
+  MYSQL_PWD="$DB_PASS" mysql -u aftersales --default-character-set=utf8mb4 clothing_aftersales < sql/data.sql 2>/dev/null \
+    && echo "  sql/data.sql 已重新执行" || echo "  重置失败：请检查 MySQL"
+else
+  echo "  已跳过"
+fi
 
 step "登录"
 post $CJ /api/auth/login <<< '{"username":"xiaolin","password":"123456"}' | node -e 'let s=require("fs").readFileSync(0,"utf8");console.log("  消费者 "+JSON.parse(s).data.displayName)'
