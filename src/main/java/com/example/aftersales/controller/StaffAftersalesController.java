@@ -40,9 +40,8 @@ public class StaffAftersalesController {
     @GetMapping
     public ApiResponse<Object> list(@RequestParam(required = false) String status,
                                     @RequestParam(required = false) String type,
-                                    @RequestParam(required = false) String keyword,
-                                    HttpSession session) {
-        return ApiResponse.ok(queryService.staffList(authService.requireLogin(session), status, type, keyword));
+                                    @RequestParam(required = false) String keyword) {
+        return ApiResponse.ok(queryService.staffList(status, type, keyword));
     }
 
     @GetMapping("/stats")

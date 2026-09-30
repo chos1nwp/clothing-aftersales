@@ -4,9 +4,10 @@
 <mapper namespace="com.example.aftersales.mapper.OrderMapper">
 
     <sql id="afterSaleUsed">
-        select order_item_id, sum(quantity) as used_quantity
+        select order_item_id,
+               sum(if(status in ('REJECTED', 'CANCELLED'), 0, quantity)) as used_quantity,
+               sum(status not in ('REJECTED', 'CANCELLED', 'COMPLETED')) as open_count
         from aftersales_order
-        where status not in ('REJECTED', 'CANCELLED')
         group by order_item_id
     </sql>
 
@@ -25,6 +26,7 @@
             <result property="quantity" column="item_quantity"/>
             <result property="unitPrice" column="unit_price"/>
             <result property="afterSaleableQuantity" column="after_saleable_quantity"/>
+            <result property="openAftersales" column="open_count"/>
         </collection>
     </resultMap>
 
@@ -41,7 +43,8 @@
                oi.size,
                oi.quantity     as item_quantity,
                oi.unit_price,
-               oi.quantity - ifnull(occ.used_quantity, 0) as after_saleable_quantity
+               oi.quantity - ifnull(occ.used_quantity, 0) as after_saleable_quantity,
+               ifnull(occ.open_count, 0)                  as open_count
         from shop_order o
         join order_item oi on oi.order_id = o.id
         left join (<include refid="afterSaleUsed"/>) occ on occ.order_item_id = oi.id

@@ -10,6 +10,14 @@
         where aftersales_id = #{aftersalesId}
     </select>
 
+    <select id="findByAftersalesIds" resultType="WarehouseRecordDO">
+        select id, aftersales_id, parcel_no, received_at, received_by,
+               inspection_result, issue_description, inspected_at, inspected_by
+        from warehouse_record
+        where aftersales_id in
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </select>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         insert into warehouse_record
             (aftersales_id, parcel_no, received_at, received_by,

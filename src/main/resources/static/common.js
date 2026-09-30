@@ -119,10 +119,26 @@ const STATUS_LABEL = {
   NEED_SUPPLEMENT: '待补充',
   WAIT_RETURN: '待退回',
   WAIT_RECEIPT: '待收货',
-  WAIT_FINAL_REVIEW: '待客服确认',
+  WAIT_FINAL_REVIEW: '待确认',
   COMPLETED: '已完成',
   REJECTED: '已拒绝',
   CANCELLED: '已取消'
+};
+
+const ACTION_LABEL = {
+  APPLY: '提交申请',
+  SUPPLEMENT_REQUEST: '要求补充材料',
+  RESUBMIT: '补充后重新提交',
+  APPROVE_RETURN: '同意退回',
+  REJECT: '拒绝申请',
+  MARK_SHIPPED: '消费者已寄回',
+  CANCEL: '撤销申请',
+  RECEIVE: '登记收货',
+  INSPECT_PASS: '验货合格',
+  INSPECT_ABNORMAL: '验货异常',
+  FINAL_EXCHANGE: '确认换货补发',
+  FINAL_REFUND: '确认退款',
+  FINAL_REJECT: '最终拒绝'
 };
 
 const TYPE_LABEL = { RETURN: '退货', EXCHANGE: '换货' };
@@ -133,6 +149,34 @@ const REASON_LABEL = {
 
 function statusBadge(status) {
   return `<span class="badge status-${status}">${STATUS_LABEL[status] || status}</span>`;
+}
+
+function formatTime(value) {
+  return value ? String(value).replace('T', ' ').slice(0, 19) : '—';
+}
+
+function queryParam(name) {
+  return new URLSearchParams(location.search).get(name);
+}
+
+/** 写操作失败时按状态区分提示：409 是并发冲突，需要用户刷新后重看 */
+function failWithToast(error) {
+  const type = error.status === 409 ? 'conflict' : 'error';
+  showToast(error.message, type);
+  return type;
+}
+
+function renderTimeline(items, withVisibility) {
+  if (!items || !items.length) return '<div class="state">暂无操作记录</div>';
+  return `<ul class="timeline">${items.map(t => `
+    <li>
+      <div class="tl-head">${ACTION_LABEL[t.action] || t.action} ${statusBadge(t.toStatus)}</div>
+      <div class="tl-meta">
+        ${formatTime(t.createdAt)} · ${escapeHtml(t.operatorName || '')}（${t.operatorRole}）
+        ${withVisibility ? ` · 对消费者可见=${t.visibleToConsumer ? '是' : '否（内部）'}` : ''}
+      </div>
+      <div>${escapeHtml(t.note || '')}</div>
+    </li>`).join('')}</ul>`;
 }
 
 async function bootstrap() {

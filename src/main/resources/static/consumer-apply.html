@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>申请售后 · 服装网店退换货处理系统</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-title">服装网店退换货处理系统</span>
+      <span class="brand-sub">消费者 · 申请售后</span>
+    </div>
+    <div id="nav"></div>
+  </header>
+
+  <main class="page" id="page">
+    <div class="card"><div class="state">正在读取订单商品…</div></div>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="common.js"></script>
+  <script>
+    const page = document.getElementById('page');
+    const itemId = Number(queryParam('item'));
+
+    async function load() {
+      if (!itemId) {
+        page.innerHTML = '<div class="card"><div class="state error-text">缺少订单商品参数，请从「我的订单」进入</div></div>';
+        return;
+      }
+      let orders;
+      try {
+        orders = await api('/api/consumer/orders');
+      } catch (error) {
+        page.innerHTML = `<div class="card"><div class="state error-text">${escapeHtml(error.message)}</div></div>`;
+        return;
+      }
+      let found = null;
+      for (const order of orders) {
+        const item = order.items.find(i => i.id === itemId);
+        if (item) { found = { order, item }; break; }
+      }
+      if (!found) {
+        page.innerHTML = '<div class="card"><div class="state">找不到这件订单商品，或它不属于你的账号</div></div>';
+        return;
+      }
+      render(found);
+    }
+
+    function render({ order, item }) {
+      const canApply = order.status === 'COMPLETED' && order.afterSaleOpen
+        && !item.openAftersales && item.afterSaleableQuantity > 0;
+      page.innerHTML = `
+        <div class="card">
+          <h2>申请售后的商品</h2>
+          <dl class="kv">
+            <dt>订单号</dt><dd>${escapeHtml(order.orderNo)}</dd>
+            <dt>商品</dt><dd>${escapeHtml(item.productName)} <span class="muted">${escapeHtml(item.color)} / ${escapeHtml(item.size)}</span></dd>
+            <dt>购买数量</dt><dd>${item.quantity} 件，单价 ¥${item.unitPrice}</dd>
+            <dt>可售后数量</dt><dd><strong>${item.afterSaleableQuantity}</strong> 件</dd>
+            <dt>签收时间</dt><dd>${formatTime(order.completedAt)}</dd>
+            <dt>售后截止</dt><dd>${formatTime(order.afterSaleDeadline)}（签收后 ${order.afterSaleDays} 天内）</dd>
+          </dl>
+        </div>
+
+        ${canApply ? `
+        <div class="card">
+          <h2>填写申请</h2>
+          <form id="apply-form" novalidate>
+            <label><span>售后类型</span>
+              <select id="type">
+                <option value="RETURN">退货</option>
+                <option value="EXCHANGE">换货</option>
+              </select>
+            </label>
+            <label><span>申请数量（最多 ${item.afterSaleableQuantity} 件）</span>
+              <input type="number" id="quantity" min="1" max="${item.afterSaleableQuantity}" value="1">
+            </label>
+            <label><span>申请原因</span>
+              <select id="reason">
+                ${Object.entries(REASON_LABEL).map(([code, label]) => `<option value="${code}">${label}</option>`).join('')}
+              </select>
+            </label>
+            <label><span>问题说明</span>
+              <textarea id="description" placeholder="写清楚哪里不合适，客服会据此判断"></textarea>
+            </label>
+            <div class="field-error" id="form-error" hidden></div>
+            <div class="btn-row">
+              <button class="btn primary" type="submit" id="submit-btn">提交申请</button>
+              <a class="btn" href="consumer-orders.html">返回订单</a>
+            </div>
+            <p class="muted small">提交后可以在售后单详情里继续上传凭证图片。</p>
+          </form>
+        </div>` : `
+        <div class="card">
+          <div class="state">
+            ${order.status !== 'COMPLETED' ? '订单还没有完成，不能申请售后'
+              : !order.afterSaleOpen ? `已超过售后期限（截止 ${formatTime(order.afterSaleDeadline)}）`
+              : item.openAftersales ? '这件商品已有正在处理中的售后申请，同一件商品同时只能走一个售后流程，请先在「我的售后单」里处理完或撤销'
+              : '这件商品已经没有可售后数量'}
+          </div>
+          <div class="btn-row"><a class="btn" href="consumer-orders.html">返回订单</a></div>
+        </div>`}`;
+
+      const form = document.getElementById('apply-form');
+      if (!form) return;
+      form.addEventListener('submit', async event => {
+        event.preventDefault();
+        const button = document.getElementById('submit-btn');
+        const errorBox = document.getElementById('form-error');
+        errorBox.hidden = true;
+        button.disabled = true;
+        button.textContent = '提交中…';
+        try {
+          const id = await api('/api/aftersales', {
+            method: 'POST',
+            body: {
+              orderItemId: item.id,
+              type: document.getElementById('type').value,
+              quantity: Number(document.getElementById('quantity').value),
+              reasonCode: document.getElementById('reason').value,
+              description: document.getElementById('description').value
+            }
+          });
+          showToast('申请已提交，等待客服审核');
+          setTimeout(() => { location.href = `detail.html?id=${id}`; }, 600);
+        } catch (error) {
+          errorBox.textContent = error.message;
+          errorBox.hidden = false;
+          button.disabled = false;
+          button.textContent = '提交申请';
+        }
+      });
+    }
+
+    bootstrap().then(load);
+  </script>
+</body>
+</html>

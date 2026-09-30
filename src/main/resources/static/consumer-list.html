@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>我的售后单 · 服装网店退换货处理系统</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-title">服装网店退换货处理系统</span>
+      <span class="brand-sub">消费者 · 我的售后单</span>
+    </div>
+    <div id="nav"></div>
+  </header>
+
+  <main class="page">
+    <section class="card">
+      <h2>按状态查看</h2>
+      <div class="filters" id="filters">
+        <button class="chip" data-status="">全部</button>
+        <button class="chip" data-status="PENDING_REVIEW">待审核</button>
+        <button class="chip" data-status="NEED_SUPPLEMENT">待我补充</button>
+        <button class="chip" data-status="WAIT_RETURN">待我寄回</button>
+        <button class="chip" data-status="WAIT_RECEIPT">待商家收货</button>
+        <button class="chip" data-status="WAIT_FINAL_REVIEW">待客服确认</button>
+        <button class="chip" data-status="COMPLETED">已完成</button>
+        <button class="chip" data-status="REJECTED">已拒绝</button>
+        <button class="chip" data-status="CANCELLED">已取消</button>
+      </div>
+      <p class="muted small">点状态标签可以筛选。「待我补充」「待我寄回」是轮到你操作的环节。</p>
+    </section>
+
+    <section class="card">
+      <h2>售后记录</h2>
+      <div id="list"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="common.js"></script>
+  <script>
+    const list = document.getElementById('list');
+    let current = '';
+
+    async function load() {
+      renderState(list, 'loading');
+      let rows;
+      try {
+        rows = await api(`/api/aftersales/mine${current ? '?status=' + current : ''}`);
+      } catch (error) {
+        renderState(list, 'error', { message: error.message });
+        return;
+      }
+      if (!rows.length) {
+        renderState(list, 'empty', { emptyText: current ? '这个状态下暂时没有售后单' : '你还没有提交过售后申请' });
+        return;
+      }
+      list.innerHTML = `<table>
+        <thead><tr><th>售后单号</th><th>商品</th><th>类型</th><th>数量</th><th>状态</th><th>提交时间</th><th></th></tr></thead>
+        <tbody>${rows.map(a => `<tr>
+          <td>${escapeHtml(a.aftersalesNo)}</td>
+          <td>${escapeHtml(a.productName)} <span class="muted">${escapeHtml(a.color)}/${escapeHtml(a.size)}</span></td>
+          <td>${a.typeLabel}</td>
+          <td>${a.quantity}</td>
+          <td>${statusBadge(a.status)}</td>
+          <td class="muted small">${formatTime(a.createdAt)}</td>
+          <td><a class="btn tiny" href="detail.html?id=${a.id}">查看进度</a></td>
+        </tr>`).join('')}</tbody></table>`;
+    }
+
+    document.getElementById('filters').addEventListener('click', event => {
+      const chip = event.target.closest('.chip');
+      if (!chip) return;
+      current = chip.dataset.status;
+      document.querySelectorAll('#filters .chip').forEach(c => c.classList.toggle('active', c === chip));
+      load();
+    });
+
+    bootstrap().then(() => {
+      document.querySelector('#filters .chip').classList.add('active');
+      load();
+    });
+  </script>
+</body>
+</html>

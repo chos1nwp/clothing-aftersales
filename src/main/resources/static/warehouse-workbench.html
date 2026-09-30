@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>仓库工作台 · 服装网店退换货处理系统</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-title">服装网店退换货处理系统</span>
+      <span class="brand-sub">仓库工作台</span>
+    </div>
+    <div id="nav"></div>
+  </header>
+
+  <main class="page">
+    <div class="notice">
+      仓库只做两件事：登记收到退回包裹、登记验货结果。
+      只有客服同意退回并且消费者确认寄回之后，包裹才会出现在「待收货」里；
+      验货完成后单据交给客服下最终结论，仓库不能自己判定退款或换货。
+    </div>
+
+    <section class="card">
+      <h2>我的队列</h2>
+      <div class="filters" id="tabs">
+        <button class="chip active" data-tab="wait">待收货</button>
+        <button class="chip" data-tab="inspect">已收货待验货</button>
+        <button class="chip" data-tab="handed">已交客服</button>
+        <button class="chip" data-tab="all">全部</button>
+      </div>
+      <div id="list"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="common.js"></script>
+  <script>
+    const list = document.getElementById('list');
+    let tab = 'wait';
+    let all = [];
+
+    async function load() {
+      renderState(list, 'loading');
+      try {
+        const status = tab === 'handed' ? 'WAIT_FINAL_REVIEW' : tab === 'all' ? '' : 'WAIT_RECEIPT';
+        all = await api('/api/staff/aftersales' + (status ? '?status=' + status : ''));
+      } catch (error) {
+        renderState(list, 'error', { message: error.message });
+        return;
+      }
+      const rows = tab === 'wait' ? all.filter(a => !a.warehouseRecord || !a.warehouseRecord.receivedAt)
+        : tab === 'inspect' ? all.filter(a => a.warehouseRecord && a.warehouseRecord.receivedAt && !a.warehouseRecord.inspectionResult)
+          : all;
+      if (!rows.length) {
+        renderState(list, 'empty', { emptyText: '这个队列暂时没有包裹要处理' });
+        return;
+      }
+      list.innerHTML = `<p class="muted small">${rows.length} 张单据</p>
+        <table><thead><tr><th>单号</th><th>商品</th><th>类型</th><th>寄回单号</th><th>状态</th><th>收货</th><th>验货</th><th></th></tr></thead>
+        <tbody>${rows.map(a => {
+          const w = a.warehouseRecord || {};
+          const action = a.status !== 'WAIT_RECEIPT' ? '查看'
+            : !w.receivedAt ? '登记收货' : !w.inspectionResult ? '登记验货' : '查看';
+          return `<tr>
+            <td>${escapeHtml(a.aftersalesNo)}<div class="muted small">${escapeHtml(a.consumerName)}</div></td>
+            <td>${escapeHtml(a.productName)} <span class="muted">${escapeHtml(a.color)}/${escapeHtml(a.size)}</span><div class="muted small">申请 ${a.quantity} 件</div></td>
+            <td>${a.typeLabel}</td>
+            <td class="muted">${escapeHtml(a.consumerParcelNo || '未填写')}</td>
+            <td>${statusBadge(a.status)}</td>
+            <td class="muted small">${w.receivedAt ? formatTime(w.receivedAt) : '—'}</td>
+            <td class="muted small">${w.inspectionResult ? (w.inspectionResult === 'PASS' ? '合格' : '异常') : '—'}</td>
+            <td><a class="btn tiny ${action === '查看' ? '' : 'primary'}" href="detail.html?id=${a.id}">${action}</a></td>
+          </tr>`;
+        }).join('')}</tbody></table>`;
+    }
+
+    document.getElementById('tabs').addEventListener('click', event => {
+      const chip = event.target.closest('.chip');
+      if (!chip) return;
+      tab = chip.dataset.tab;
+      document.querySelectorAll('#tabs .chip').forEach(c => c.classList.toggle('active', c === chip));
+      load();
+    });
+
+    bootstrap().then(load);
+  </script>
+</body>
+</html>

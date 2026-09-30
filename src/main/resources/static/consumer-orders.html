@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>我的订单 · 服装网店退换货处理系统</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-title">服装网店退换货处理系统</span>
+      <span class="brand-sub">消费者 · 我的订单</span>
+    </div>
+    <div id="nav"></div>
+  </header>
+
+  <main class="page">
+    <div class="notice">
+      这里列出的是课程用的模拟订单，只用于发起售后，不含购物车、支付等商城功能。
+      一件商品的可售后数量 = 购买数量 − 已在售后流程中的数量。
+    </div>
+    <section class="card">
+      <h2>订单列表</h2>
+      <div id="orders"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="common.js"></script>
+  <script>
+    const box = document.getElementById('orders');
+
+    async function load() {
+      renderState(box, 'loading');
+      let orders;
+      try {
+        orders = await api('/api/consumer/orders');
+      } catch (error) {
+        renderState(box, 'error', { message: error.message });
+        return;
+      }
+      if (!orders.length) {
+        renderState(box, 'empty', { emptyText: '你还没有模拟订单' });
+        return;
+      }
+      box.innerHTML = orders.map(order => `
+        <div class="order-block">
+          <div class="order-head">
+            <strong>${escapeHtml(order.orderNo)}</strong>
+            <span class="muted">${formatTime(order.placedAt)}</span>
+            ${order.status === 'COMPLETED'
+              ? `<span class="muted small">签收于 ${formatTime(order.completedAt)}，售后期 ${order.afterSaleDays} 天，截止 ${formatTime(order.afterSaleDeadline)}</span>`
+              : `<span class="badge status-CANCELLED">未完成的订单</span>`}
+          </div>
+          <table>
+            <thead><tr><th>商品</th><th>规格</th><th>数量</th><th>单价</th><th>可售后</th><th></th></tr></thead>
+            <tbody>
+              ${order.items.map(item => {
+                const blocked = order.status !== 'COMPLETED' ? '订单还未完成'
+                  : !order.afterSaleOpen ? '已超过售后期限'
+                  : item.openAftersales ? '已有处理中的售后，先处理完再申请'
+                  : item.afterSaleableQuantity === 0 ? '没有可售后数量' : '';
+                return `<tr>
+                  <td>${escapeHtml(item.productName)}</td>
+                  <td class="muted">${escapeHtml(item.color)} / ${escapeHtml(item.size)}</td>
+                  <td>${item.quantity}</td>
+                  <td>¥${item.unitPrice}</td>
+                  <td>${item.afterSaleableQuantity}</td>
+                  <td>
+                    ${blocked
+                      ? `<button class="btn tiny" disabled title="${blocked}">申请售后</button><span class="muted small"> ${blocked}</span>`
+                      : `<a class="btn tiny primary" href="consumer-apply.html?item=${item.id}">申请售后</a>`}
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>`).join('');
+    }
+
+    bootstrap().then(load);
+  </script>
+</body>
+</html>

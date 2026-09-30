@@ -12,6 +12,9 @@
 
 * { box-sizing: border-box; }
 
+/* 作者样式表里的 label{display:block} 会盖掉浏览器默认的 [hidden]{display:none}，必须显式声明 */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
@@ -58,8 +61,7 @@ body {
 .card h2 { font-size: 15px; margin: 0 0 12px; }
 .section-title { margin-top: 22px; }
 
-label { display: block; margin-bottom: 14px; }
-label > span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+label { display: block; margin-bottom: 14px; }label > span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
 input[type=text], input[type=password], input[type=number], select, textarea {
   width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 7px;
   font-family: inherit; font-size: 14px; background: #fff;
@@ -147,6 +149,15 @@ tr.clickable:hover { background: #f7f9fc; cursor: pointer; }
 .filters label { margin-bottom: 0; min-width: 150px; }
 .evidence-list { display: flex; gap: 10px; flex-wrap: wrap; }
 .evidence-list a { color: var(--primary); word-break: break-all; }
+
+.order-block { border: 1px solid var(--line); border-radius: 9px; margin-bottom: 16px; overflow: hidden; }
+.order-head {
+  display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap;
+  padding: 12px 14px; background: #fafbfc; border-bottom: 1px solid var(--line);
+}
+.order-block table { border-top: none; }
+.order-block td { border-bottom: 1px solid #eef0f4; }
+.order-block tr:last-child td { border-bottom: none; }
 .notice {
   background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af;
   padding: 10px 14px; border-radius: 8px; margin-bottom: 14px;

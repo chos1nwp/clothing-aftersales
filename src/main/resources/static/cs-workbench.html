@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>客服工作台 · 服装网店退换货处理系统</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-title">服装网店退换货处理系统</span>
+      <span class="brand-sub">售后客服工作台</span>
+    </div>
+    <div id="nav"></div>
+  </header>
+
+  <main class="page">
+    <section class="card">
+      <h2>各状态数量</h2>
+      <div class="count-cards" id="stats"></div>
+      <p class="muted small">点卡片按该状态筛选。待审核要你判断是否同意退回，待确认是仓库验完货等你的最终结论。</p>
+    </section>
+
+    <section class="card">
+      <h2>售后单</h2>
+      <div class="filters">
+        <label><span>类型</span>
+          <select id="type"><option value="">全部</option><option value="RETURN">退货</option><option value="EXCHANGE">换货</option></select>
+        </label>
+        <label><span>关键词（单号 / 商品 / 申请人）</span>
+          <input type="text" id="keyword" placeholder="例如 AS2026 或 小林">
+        </label>
+        <button class="btn" id="reset">全部</button>
+      </div>
+      <div id="list"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="common.js"></script>
+  <script>
+    const list = document.getElementById('list');
+    const stats = document.getElementById('stats');
+    let status = '';
+
+    async function loadStats() {
+      try {
+        const rows = await api('/api/staff/aftersales/stats');
+        const byStatus = Object.fromEntries(rows.map(r => [r.status, r.count]));
+        const order = ['PENDING_REVIEW', 'NEED_SUPPLEMENT', 'WAIT_RETURN', 'WAIT_RECEIPT', 'WAIT_FINAL_REVIEW', 'COMPLETED', 'REJECTED', 'CANCELLED'];
+        stats.innerHTML = order.map(s => `
+          <button class="count-card${status === s ? ' active' : ''}" data-status="${s}">
+            <div class="num">${byStatus[s] || 0}</div><div class="muted small">${STATUS_LABEL[s]}</div>
+          </button>`).join('');
+      } catch (error) {
+        stats.innerHTML = `<div class="state error-text">${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    async function loadList() {
+      renderState(list, 'loading');
+      const params = new URLSearchParams();
+      if (status) params.set('status', status);
+      const type = document.getElementById('type').value;
+      const keyword = document.getElementById('keyword').value.trim();
+      if (type) params.set('type', type);
+      if (keyword) params.set('keyword', keyword);
+      let rows;
+      try {
+        rows = await api('/api/staff/aftersales?' + params.toString());
+      } catch (error) {
+        renderState(list, 'error', { message: error.message });
+        return;
+      }
+      if (!rows.length) {
+        renderState(list, 'empty', { emptyText: '没有符合条件的售后单' });
+        return;
+      }
+      const mine = rows.filter(a => a.status === 'PENDING_REVIEW' || a.status === 'WAIT_FINAL_REVIEW').length;
+      list.innerHTML = `<p class="muted small">共 ${rows.length} 张，其中 ${mine} 张等客服处理</p>
+        <table><thead><tr><th>单号</th><th>申请人</th><th>商品</th><th>类型</th><th>数量</th><th>状态</th><th>提交时间</th><th></th></tr></thead>
+        <tbody>${rows.map(a => `<tr>
+          <td>${escapeHtml(a.aftersalesNo)}</td>
+          <td>${escapeHtml(a.consumerName)}</td>
+          <td>${escapeHtml(a.productName)} <span class="muted">${escapeHtml(a.color)}/${escapeHtml(a.size)}</span></td>
+          <td>${a.typeLabel}<span class="muted small"> · ${a.reasonLabel}</span></td>
+          <td>${a.quantity}</td>
+          <td>${statusBadge(a.status)}</td>
+          <td class="muted small">${formatTime(a.createdAt)}</td>
+          <td><a class="btn tiny primary" href="detail.html?id=${a.id}">${a.status === 'PENDING_REVIEW' ? '审核' : a.status === 'WAIT_FINAL_REVIEW' ? '下结论' : '查看'}</a></td>
+        </tr>`).join('')}</tbody></table>`;
+    }
+
+    function refresh() { loadStats(); loadList(); }
+
+    stats.addEventListener('click', event => {
+      const card = event.target.closest('.count-card');
+      if (!card) return;
+      status = status === card.dataset.status ? '' : card.dataset.status;
+      refresh();
+    });
+    document.getElementById('type').addEventListener('change', loadList);
+    document.getElementById('keyword').addEventListener('input', () => { clearTimeout(window._kt); window._kt = setTimeout(loadList, 300); });
+    document.getElementById('reset').addEventListener('click', () => {
+      status = ''; document.getElementById('type').value = ''; document.getElementById('keyword').value = ''; refresh();
+    });
+
+    bootstrap().then(() => {
+      status = 'PENDING_REVIEW';
+      refresh();
+    });
+  </script>
+</body>
+</html>

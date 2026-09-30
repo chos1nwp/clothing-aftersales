@@ -1,7 +1,5 @@
 package com.example.aftersales.dto;
 
-import java.time.LocalDateTime;
-
 public class OrderItemView {
 
     private long id;
@@ -11,6 +9,7 @@ public class OrderItemView {
     private int quantity;
     private java.math.BigDecimal unitPrice;
     private int afterSaleableQuantity;
+    private boolean openAftersales;
 
     public long getId() { return id; }
     public void setId(long id) { this.id = id; }
@@ -26,4 +25,6 @@ public class OrderItemView {
     public void setUnitPrice(java.math.BigDecimal unitPrice) { this.unitPrice = unitPrice; }
     public int getAfterSaleableQuantity() { return afterSaleableQuantity; }
     public void setAfterSaleableQuantity(int afterSaleableQuantity) { this.afterSaleableQuantity = afterSaleableQuantity; }
+    public boolean isOpenAftersales() { return openAftersales; }
+    public void setOpenAftersales(boolean openAftersales) { this.openAftersales = openAftersales; }
 }

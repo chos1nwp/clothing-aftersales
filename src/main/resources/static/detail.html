@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>售后单详情 · 服装网店退换货处理系统</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-title">服装网店退换货处理系统</span>
+      <span class="brand-sub" id="brand-sub">售后单详情</span>
+    </div>
+    <div id="nav"></div>
+  </header>
+
+  <main class="page" id="page">
+    <div class="card"><div class="state">正在加载售后单…</div></div>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="common.js"></script>
+  <script>
+    const page = document.getElementById('page');
+    const id = Number(queryParam('id'));
+    let me = null;
+    let data = null;
+
+    async function load() {
+      renderState(page, 'loading', { loadingText: '正在加载售后单…' });
+      try {
+        data = await api(`/api/aftersales/${id}`);
+      } catch (error) {
+        page.innerHTML = `<div class="card"><div class="state error-text">${escapeHtml(error.message)}</div>
+          <div class="btn-row"><a class="btn" href="javascript:history.back()">返回</a></div></div>`;
+        return;
+      }
+      document.getElementById('brand-sub').textContent = `${data.aftersalesNo} · ${data.statusLabel}`;
+      render();
+    }
+
+    function actionPanel() {
+      const w = data.warehouseRecord;
+      if (me.role === 'CONSUMER') {
+        if (data.status === 'WAIT_RETURN') return formMarkShipped();
+        if (data.status === 'NEED_SUPPLEMENT') return formResubmit();
+        return '';
+      }
+      if (me.role === 'CS') {
+        if (data.status === 'PENDING_REVIEW') return formReview();
+        if (data.status === 'WAIT_FINAL_REVIEW') return formFinalize();
+        return '';
+      }
+      if (me.role === 'WAREHOUSE') {
+        if (data.status !== 'WAIT_RECEIPT') return '';
+        return (!w || !w.receivedAt) ? formReceive() : (!w.inspectionResult ? formInspect() : '');
+      }
+      return '';
+    }
+
+    function formReceive() {
+      return `<div class="card"><h2>登记收到退回包裹</h2>
+        <form data-act="receive"><p class="muted small">消费者寄回的单号：${escapeHtml(data.consumerParcelNo || '未填写')}</p>
+        <label><span>实际收到的包裹号</span><input type="text" name="parcelNo" value="${escapeHtml(data.consumerParcelNo || '')}" required></label>
+        <div class="field-error" data-error hidden></div>
+        <button class="btn primary" type="submit">确认收货</button></form>
+        <p class="muted small">收货只登记「包裹到了」，不改变售后状态，也不等于同意退款。</p></div>`;
+    }
+
+    function formInspect() {
+      return `<div class="card"><h2>登记验货结果</h2>
+        <form data-act="inspect">
+        <label><span>验货结论</span><select name="result">
+          <option value="PASS">合格：商品可以进入下一步处理</option>
+          <option value="ABNORMAL">异常：商品存在问题</option></select></label>
+        <label><span>异常现象（选择异常时必填）</span><textarea name="issueDescription" placeholder="例如：水洗标已拆、袖口有明显污渍"></textarea></label>
+        <div class="field-error" data-error hidden></div>
+        <button class="btn primary" type="submit">提交验货结果</button></form>
+        <p class="muted small">验货结果交给客服判断，仓库不直接决定退款或换货。</p></div>`;
+    }
+
+    function formReview() {
+      return `<div class="card"><h2>审核这张售后申请</h2>
+        <form data-act="review">
+        <label><span>处理动作</span><select name="action">
+          <option value="APPROVE_RETURN">同意退回</option>
+          <option value="NEED_SUPPLEMENT">要求补充材料</option>
+          <option value="REJECT">拒绝申请</option></select></label>
+        <label data-only="APPROVE_RETURN"><span>退回指引（同意退回时必填）</span>
+          <textarea name="returnGuidance" placeholder="退回地址、收件人、注意事项"></textarea></label>
+        <label><span>处理说明</span><textarea name="note" placeholder="要求补充或拒绝时必须写清原因"></textarea></label>
+        <div class="field-error" data-error hidden></div>
+        <button class="btn primary" type="submit">提交审核结果</button></form></div>`;
+    }
+
+    function formFinalize() {
+      const isExchange = data.type === 'EXCHANGE';
+      return `<div class="card"><h2>给出最终结论</h2>
+        <form data-act="finalize">
+        <label><span>结论</span><select name="action">
+          ${isExchange ? '<option value="FINAL_EXCHANGE">同意换货并补发</option>' : '<option value="FINAL_REFUND">同意退货，模拟退款</option>'}
+          <option value="FINAL_REJECT">拒绝</option></select></label>
+        <label data-only="FINAL_EXCHANGE"><span>模拟补发单号</span><input type="text" name="trackingNo" placeholder="例如 SF5566778899"></label>
+        <label><span>结论说明</span><textarea name="note" placeholder="写明依据，消费者会看到这段说明"></textarea></label>
+        <div class="field-error" data-error hidden></div>
+        <button class="btn primary" type="submit">确认并关闭售后单</button></form>
+        <p class="muted small">退货退款的金额由服务端按「单价 × 数量」计算，页面不能填写。</p></div>`;
+    }
+
+    function formMarkShipped() {
+      return `<div class="card"><h2>填写寄回单号</h2>
+        <form data-act="mark-shipped">
+        <label><span>你寄回时使用的快递单号</span><input type="text" name="parcelNo" placeholder="例如 SF1234567890" required></label>
+        <div class="field-error" data-error hidden></div>
+        <button class="btn primary" type="submit">我已寄回</button></form>
+        <div class="notice">退回指引：${escapeHtml(data.returnGuidance || '')}</div></div>`;
+    }
+
+    function formResubmit() {
+      return `<div class="card"><h2>补充材料后重新提交</h2>
+        <form data-act="resubmit">
+        <label><span>补充说明</span><textarea name="description" required>${escapeHtml(data.description || '')}</textarea></label>
+        <div class="field-error" data-error hidden></div>
+        <button class="btn primary" type="submit">重新提交审核</button></form></div>`;
+    }
+
+    function secondaryPanel() {
+      const closable = ['PENDING_REVIEW', 'NEED_SUPPLEMENT', 'WAIT_RETURN'];
+      if (me.role !== 'CONSUMER' || !closable.includes(data.status)) return '';
+      return `<div class="card"><h2>撤销申请</h2>
+        <button class="btn" id="cancel-btn">我不处理了，撤销这张售后单</button>
+        <p class="muted small">仓库开始处理后就不能撤销了。</p></div>`;
+    }
+
+    function render() {
+      const w = data.warehouseRecord;
+      const warehouseBlock = w ? `
+        <dl class="kv">
+          <dt>收货时间</dt><dd>${formatTime(w.receivedAt)}</dd>
+          <dt>验货结论</dt><dd>${w.inspectionResult ? (w.inspectionResult === 'PASS' ? '合格' : '异常') : '未验货'}</dd>
+          ${me.role === 'CONSUMER' ? '' : `<dt>异常现象</dt><dd>${escapeHtml(w.issueDescription || '—')}</dd>`}
+        </dl>` : '<p class="muted">仓库尚未登记收货</p>';
+
+      const evidenceBlock = (data.evidenceList && data.evidenceList.length)
+        ? `<div class="evidence-list">${data.evidenceList.map(e =>
+            `<a href="${escapeHtml(e.filePath)}" target="_blank">${escapeHtml(e.originalName)}</a>`).join('')}</div>`
+        : '<p class="muted">暂无图片凭证</p>';
+
+      page.innerHTML = `
+        <div class="grid two">
+          <div>
+            <div class="card">
+              <h2>${escapeHtml(data.aftersalesNo)} ${statusBadge(data.status)}</h2>
+              <dl class="kv">
+                <dt>商品</dt><dd>${escapeHtml(data.productName)} <span class="muted">${escapeHtml(data.color)}/${escapeHtml(data.size)}</span></dd>
+                <dt>订单号</dt><dd>${escapeHtml(data.orderNo)} <span class="muted small">签收于 ${formatTime(data.orderCompletedAt)}</span></dd>
+                <dt>类型 / 原因</dt><dd>${data.typeLabel} · ${data.reasonLabel}</dd>
+                <dt>数量</dt><dd>${data.quantity} 件（单价 ¥${data.unitPrice}）</dd>
+                <dt>说明</dt><dd>${escapeHtml(data.description)}</dd>
+                <dt>售后截止</dt><dd>${formatTime(data.afterSaleDeadline)}</dd>
+                ${me.role === 'CONSUMER' ? '' : `<dt>申请人</dt><dd>${escapeHtml(data.consumerName)}</dd>`}
+              </dl>
+              ${data.returnGuidance ? `<div class="notice">退回指引：${escapeHtml(data.returnGuidance)}</div>` : ''}
+              ${data.resendTrackingNo ? `<div class="notice">换货已补发，单号 ${escapeHtml(data.resendTrackingNo)}</div>` : ''}
+              ${data.refundAmount != null ? `<div class="notice">模拟退款金额 ¥${data.refundAmount}（未接入真实资金）</div>` : ''}
+              ${data.finalNote ? `<p><strong>处理结论：</strong>${escapeHtml(data.finalNote)}</p>` : ''}
+              <p class="muted small">提交于 ${formatTime(data.createdAt)}${data.closedAt ? ` · 关闭于 ${formatTime(data.closedAt)}` : ''}</p>
+            </div>
+
+            <div class="card"><h2>处理时间线</h2><div id="timeline"></div></div>
+          </div>
+
+          <div>
+            <div id="actions">${actionPanel() || '<div class="card"><div class="state">当前状态下你没有可执行的操作</div></div>'}</div>
+            ${me.role === 'CONSUMER' ? secondaryPanel() : ''}
+            <div class="card"><h2>仓库收货与验货</h2>${warehouseBlock}</div>
+            <div class="card"><h2>图片凭证</h2>${evidenceBlock}
+              ${me.role === 'CONSUMER' && !data.status.startsWith('COMPLET') && data.status !== 'REJECTED' && data.status !== 'CANCELLED' ? `
+              <form id="evidence-form">
+                <label><span>上传凭证（jpg / png / webp，可多次上传）</span><input type="file" id="evidence-file" accept="image/*"></label>
+                <button class="btn" type="submit">上传</button>
+              </form>` : ''}
+            </div>
+          </div>
+        </div>`;
+
+      document.getElementById('timeline').innerHTML =
+        renderTimeline(data.timeline, me.role !== 'CONSUMER');
+
+      bindActions();
+    }
+
+    function bindActions() {
+      document.querySelectorAll('form[data-act]').forEach(form => {
+        const select = form.querySelector('select[name=action]');
+        if (select) {
+          const sync = () => form.querySelectorAll('[data-only]').forEach(el => {
+            el.hidden = el.dataset.only !== select.value;
+          });
+          select.addEventListener('change', sync);
+          select.addEventListener('input', sync);
+          sync();
+        }
+        form.addEventListener('submit', async event => {
+          event.preventDefault();
+          await submitAction(form);
+        });
+      });
+
+      const cancelBtn = document.getElementById('cancel-btn');
+      if (cancelBtn) cancelBtn.addEventListener('click', async () => {
+        if (!confirm('撤销后这张售后单会关闭，需要重新申请。确定吗？')) return;
+        cancelBtn.disabled = true;
+        try {
+          await api(`/api/aftersales/${id}/cancel`, { method: 'POST' });
+          showToast('已撤销');
+          load();
+        } catch (error) {
+          failWithToast(error);
+          cancelBtn.disabled = false;
+        }
+      });
+
+      const evidenceForm = document.getElementById('evidence-form');
+      if (evidenceForm) evidenceForm.addEventListener('submit', async event => {
+        event.preventDefault();
+        const file = document.getElementById('evidence-file').files[0];
+        if (!file) { showToast('请先选择图片', 'error'); return; }
+        const body = new FormData();
+        body.append('file', file);
+        try {
+          await api(`/api/aftersales/${id}/evidence`, { method: 'POST', body, json: false });
+          showToast('凭证已上传');
+          load();
+        } catch (error) {
+          failWithToast(error);
+        }
+      });
+    }
+
+    async function submitAction(form) {
+      const act = form.dataset.act;
+      const button = form.querySelector('button[type=submit]');
+      const errorBox = form.querySelector('[data-error]');
+      const values = Object.fromEntries(new FormData(form).entries());
+      const route = {
+        receive: `/api/staff/aftersales/${id}/receive`,
+        inspect: `/api/staff/aftersales/${id}/inspect`,
+        review: `/api/staff/aftersales/${id}/review`,
+        finalize: `/api/staff/aftersales/${id}/finalize`,
+        'mark-shipped': `/api/aftersales/${id}/mark-shipped`,
+        resubmit: `/api/aftersales/${id}/resubmit`
+      }[act];
+
+      if (act === 'inspect' && values.result === 'PASS') delete values.issueDescription;
+      if (act === 'mark-shipped') Object.keys(values).forEach(k => { if (k !== 'parcelNo') delete values[k]; });
+
+      errorBox.hidden = true;
+      button.disabled = true;
+      const original = button.textContent;
+      button.textContent = '提交中…';
+      try {
+        await api(route, { method: 'POST', body: values });
+        showToast('操作成功');
+        load();
+      } catch (error) {
+        const type = failWithToast(error);
+        if (type === 'conflict') {
+          errorBox.textContent = error.message + '（页面已按最新状态刷新）';
+          errorBox.hidden = false;
+          setTimeout(load, 1200);
+        } else {
+          errorBox.textContent = error.message;
+          errorBox.hidden = false;
+          button.disabled = false;
+          button.textContent = original;
+        }
+      }
+    }
+
+    bootstrap().then(user => { me = user; load(); });
+  </script>
+</body>
+</html>

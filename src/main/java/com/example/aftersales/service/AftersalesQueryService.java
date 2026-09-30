@@ -18,6 +18,8 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class AftersalesQueryService {
@@ -59,13 +61,15 @@ public class AftersalesQueryService {
         return list;
     }
 
-    public List<AftersalesView> staffList(LoginUser user, String status, String type, String keyword) {
-        String effectiveStatus = status;
-        if (user.role() == UserRole.WAREHOUSE && (status == null || status.isBlank())) {
-            effectiveStatus = AftersalesStatus.WAIT_RECEIPT.name();
-        }
-        List<AftersalesView> list = aftersalesMapper.listForStaff(effectiveStatus, type, keyword);
+    public List<AftersalesView> staffList(String status, String type, String keyword) {
+        List<AftersalesView> list = aftersalesMapper.listForStaff(status, type, keyword);
         list.forEach(this::fillLabels);
+        if (!list.isEmpty()) {
+            List<Long> ids = list.stream().map(AftersalesView::getId).toList();
+            Map<Long, WarehouseRecordDO> byAftersales = warehouseMapper.findByAftersalesIds(ids).stream()
+                    .collect(Collectors.toMap(WarehouseRecordDO::getAftersalesId, record -> record));
+            list.forEach(view -> view.setWarehouseRecord(byAftersales.get(view.getId())));
+        }
         return list;
     }
 
