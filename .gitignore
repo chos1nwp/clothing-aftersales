@@ -1,0 +1,19 @@
+# 本地密钥，绝不提交
+.mysql-pass
+.mysql-app-pass
+src/main/resources/application-local.properties
+
+# 构建产物
+target/
+uploads/
+node_modules/
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/
+
+# 日志
+*.log
