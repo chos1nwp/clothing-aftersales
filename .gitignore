@@ -1,6 +1,7 @@
 # 本地密钥，绝不提交
 .mysql-pass
 .mysql-app-pass
+/application-local.properties
 src/main/resources/application-local.properties
 
 # 构建产物

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>登录 · 服装网店退换货处理系统</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-title">服装网店退换货处理系统</span>
+      <span class="brand-sub">售后协作 · 教学演示项目</span>
+    </div>
+  </header>
+
+  <main class="page" id="main-content">
+    <section class="card login-card">
+      <h1>岗位登录</h1>
+      <p class="muted">不同岗位登录后进入各自工作台，看到自己该处理的售后单。</p>
+
+      <form id="login-form" novalidate>
+        <label>
+          <span>登录账号</span>
+          <input type="text" id="username" name="username" autocomplete="username" placeholder="例如 xiaolin">
+        </label>
+        <label>
+          <span>密码</span>
+          <input type="password" id="password" name="password" autocomplete="current-password" placeholder="演示密码 123456">
+        </label>
+        <div id="login-error" class="error-text" hidden></div>
+        <button type="submit" id="login-submit" class="btn primary">登录</button>
+      </form>
+
+      <h2 class="section-title">演示账号</h2>
+      <div class="account-list" id="account-list">
+        <button class="chip" data-user="xiaolin">消费者 · 小林</button>
+        <button class="chip" data-user="cs01">售后客服 · 陈静</button>
+        <button class="chip" data-user="wh01">仓库 · 刘伟</button>
+      </div>
+      <p class="muted small">全部演示账号密码均为 123456，数据为虚构。</p>
+    </section>
+  </main>
+
+  <script src="common.js"></script>
+  <script>
+    const HOME_BY_ROLE = {
+      CONSUMER: 'consumer-orders.html',
+      CS: 'cs-workbench.html',
+      WAREHOUSE: 'warehouse-workbench.html'
+    };
+
+    document.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.getElementById('username').value = chip.dataset.user;
+        document.getElementById('password').value = '123456';
+      });
+    });
+
+    document.getElementById('login-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      const button = document.getElementById('login-submit');
+      const errorBox = document.getElementById('login-error');
+      errorBox.hidden = true;
+      button.disabled = true;
+      button.textContent = '登录中…';
+      try {
+        const user = await api('/api/auth/login', {
+          method: 'POST',
+          body: {
+            username: document.getElementById('username').value.trim(),
+            password: document.getElementById('password').value
+          }
+        });
+        location.href = HOME_BY_ROLE[user.role] || 'index.html';
+      } catch (error) {
+        errorBox.textContent = error.message;
+        errorBox.hidden = false;
+        button.disabled = false;
+        button.textContent = '登录';
+      }
+    });
+  </script>
+</body>
+</html>
