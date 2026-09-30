@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.aftersales.mapper.ActionLogMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        insert into aftersales_action_log
+            (aftersales_id, action, from_status, to_status, operator_user_id,
+             operator_role, note, visible_to_consumer, created_at)
+        values
+            (#{aftersalesId}, #{action}, #{fromStatus}, #{toStatus}, #{operatorUserId},
+             #{operatorRole}, #{note}, #{visibleToConsumer}, now())
+    </insert>
+
+    <select id="findByAftersalesId" resultType="ActionLogDO">
+        select l.id, l.aftersales_id, l.action, l.from_status, l.to_status,
+               l.operator_user_id, l.operator_role, l.note, l.visible_to_consumer, l.created_at,
+               u.display_name as operator_name
+        from aftersales_action_log l
+        join app_user u on u.id = l.operator_user_id
+        where l.aftersales_id = #{aftersalesId}
+        <if test="consumerView">
+            and l.visible_to_consumer = 1
+        </if>
+        order by l.created_at, l.id
+    </select>
+
+</mapper>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.aftersales.mapper.EvidenceMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        insert into aftersales_evidence (aftersales_id, file_path, original_name, uploaded_by, created_at)
+        values (#{aftersalesId}, #{filePath}, #{originalName}, #{uploadedBy}, now())
+    </insert>
+
+    <select id="findByAftersalesId" resultType="EvidenceDO">
+        select id, aftersales_id, file_path, original_name, uploaded_by, created_at
+        from aftersales_evidence
+        where aftersales_id = #{aftersalesId}
+        order by id
+    </select>
+
+    <select id="countByAftersalesId" resultType="int">
+        select count(*) from aftersales_evidence where aftersales_id = #{aftersalesId}
+    </select>
+
+</mapper>

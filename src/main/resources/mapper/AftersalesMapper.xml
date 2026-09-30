@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.aftersales.mapper.AftersalesMapper">
+
+    <sql id="detailColumns">
+        a.id, a.aftersales_no, a.type, a.reason_code, a.quantity, a.description,
+        a.status, a.return_guidance, a.consumer_parcel_no, a.refund_amount,
+        a.resend_tracking_no, a.final_note, a.created_at, a.updated_at, a.closed_at,
+        a.order_item_id, a.consumer_user_id,
+        oi.product_name, oi.color, oi.size, oi.quantity as item_quantity, oi.unit_price,
+        o.order_no, o.completed_at as order_completed_at,
+        date_add(o.completed_at, interval o.after_sale_days day) as after_sale_deadline,
+        u.display_name as consumer_name
+    </sql>
+
+    <sql id="detailFrom">
+        from aftersales_order a
+        join order_item oi on oi.id = a.order_item_id
+        join shop_order o on o.id = oi.order_id
+        join app_user u on u.id = a.consumer_user_id
+    </sql>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        insert into aftersales_order
+            (aftersales_no, order_item_id, consumer_user_id, type, reason_code, quantity,
+             description, status, created_at)
+        values
+            (#{aftersalesNo}, #{orderItemId}, #{consumerUserId}, #{type}, #{reasonCode}, #{quantity},
+             #{description}, #{status}, now())
+    </insert>
+
+    <update id="updateAftersalesNo">
+        update aftersales_order set aftersales_no = #{no} where id = #{id}
+    </update>
+
+    <select id="findById" resultType="AftersalesOrderDO">
+        select id, aftersales_no, order_item_id, consumer_user_id, type, reason_code, quantity,
+               description, status, return_guidance, consumer_parcel_no, refund_amount,
+               resend_tracking_no, final_note, created_at, updated_at, closed_at
+        from aftersales_order
+        where id = #{id}
+    </select>
+
+    <select id="findDetail" resultType="com.example.aftersales.dto.AftersalesView">
+        select <include refid="detailColumns"/>
+        <include refid="detailFrom"/>
+        where a.id = #{id}
+    </select>
+
+    <select id="listByConsumer" resultType="com.example.aftersales.dto.AftersalesView">
+        select <include refid="detailColumns"/>
+        <include refid="detailFrom"/>
+        where a.consumer_user_id = #{userId}
+        <if test="status != null and status != ''">
+            and a.status = #{status}
+        </if>
+        order by a.id desc
+        limit 100
+    </select>
+
+    <select id="listForStaff" resultType="com.example.aftersales.dto.AftersalesView">
+        select <include refid="detailColumns"/>
+        <include refid="detailFrom"/>
+        <where>
+            <if test="status != null and status != ''">and a.status = #{status}</if>
+            <if test="type != null and type != ''">and a.type = #{type}</if>
+            <if test="keyword != null and keyword != ''">
+                and (a.aftersales_no like concat('%', #{keyword}, '%')
+                     or o.order_no like concat('%', #{keyword}, '%')
+                     or oi.product_name like concat('%', #{keyword}, '%')
+                     or u.display_name like concat('%', #{keyword}, '%'))
+            </if>
+        </where>
+        order by a.id desc
+        limit 100
+    </select>
+
+    <select id="countByStatus" resultType="com.example.aftersales.dto.StatusCount">
+        select status, count(*) as count
+        from aftersales_order
+        group by status
+    </select>
+
+    <select id="sumOccupiedQuantity" resultType="int">
+        select ifnull(sum(quantity), 0)
+        from aftersales_order
+        where order_item_id = #{itemId}
+          and status not in ('REJECTED', 'CANCELLED')
+    </select>
+
+    <select id="countOpenByItem" resultType="int">
+        select count(*)
+        from aftersales_order
+        where order_item_id = #{itemId}
+          and status not in ('REJECTED', 'CANCELLED', 'COMPLETED')
+    </select>
+
+    <update id="updateState">
+        update aftersales_order
+        <set>
+            status = #{a.status},
+            <if test="a.returnGuidance != null">return_guidance = #{a.returnGuidance},</if>
+            <if test="a.consumerParcelNo != null">consumer_parcel_no = #{a.consumerParcelNo},</if>
+            <if test="a.description != null">description = #{a.description},</if>
+            <if test="a.refundAmount != null">refund_amount = #{a.refundAmount},</if>
+            <if test="a.resendTrackingNo != null">resend_tracking_no = #{a.resendTrackingNo},</if>
+            <if test="a.finalNote != null">final_note = #{a.finalNote},</if>
+            <if test="a.closedAt != null">closed_at = #{a.closedAt},</if>
+            updated_at = now()
+        </set>
+        where id = #{a.id} and status = #{expected}
+    </update>
+
+</mapper>

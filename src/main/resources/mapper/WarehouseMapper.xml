@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.aftersales.mapper.WarehouseMapper">
+
+    <select id="findByAftersalesId" resultType="WarehouseRecordDO">
+        select id, aftersales_id, parcel_no, received_at, received_by,
+               inspection_result, issue_description, inspected_at, inspected_by
+        from warehouse_record
+        where aftersales_id = #{aftersalesId}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        insert into warehouse_record
+            (aftersales_id, parcel_no, received_at, received_by,
+             inspection_result, issue_description, inspected_at, inspected_by)
+        values
+            (#{aftersalesId}, #{parcelNo}, #{receivedAt}, #{receivedBy},
+             #{inspectionResult}, #{issueDescription}, #{inspectedAt}, #{inspectedBy})
+    </insert>
+
+    <update id="updateReceipt">
+        update warehouse_record
+        set parcel_no = #{parcelNo}, received_at = now(), received_by = #{receivedBy}
+        where aftersales_id = #{aftersalesId} and received_at is null
+    </update>
+
+    <update id="updateInspection">
+        update warehouse_record
+        set inspection_result = #{inspectionResult},
+            issue_description = #{issueDescription},
+            inspected_at = now(),
+            inspected_by = #{inspectedBy}
+        where aftersales_id = #{aftersalesId} and inspection_result is null
+    </update>
+
+</mapper>

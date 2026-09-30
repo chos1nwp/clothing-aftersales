@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.aftersales.mapper.OrderMapper">
+
+    <sql id="afterSaleUsed">
+        select order_item_id, sum(quantity) as used_quantity
+        from aftersales_order
+        where status not in ('REJECTED', 'CANCELLED')
+        group by order_item_id
+    </sql>
+
+    <resultMap id="OrderWithItems" type="com.example.aftersales.dto.OrderView">
+        <id property="id" column="order_id"/>
+        <result property="orderNo" column="order_no"/>
+        <result property="status" column="order_status"/>
+        <result property="placedAt" column="placed_at"/>
+        <result property="completedAt" column="completed_at"/>
+        <result property="afterSaleDays" column="after_sale_days"/>
+        <collection property="items" ofType="com.example.aftersales.dto.OrderItemView">
+            <id property="id" column="item_id"/>
+            <result property="productName" column="product_name"/>
+            <result property="color" column="color"/>
+            <result property="size" column="size"/>
+            <result property="quantity" column="item_quantity"/>
+            <result property="unitPrice" column="unit_price"/>
+            <result property="afterSaleableQuantity" column="after_saleable_quantity"/>
+        </collection>
+    </resultMap>
+
+    <select id="findOrdersWithItems" resultMap="OrderWithItems">
+        select o.id            as order_id,
+               o.order_no,
+               o.status        as order_status,
+               o.placed_at,
+               o.completed_at,
+               o.after_sale_days,
+               oi.id           as item_id,
+               oi.product_name,
+               oi.color,
+               oi.size,
+               oi.quantity     as item_quantity,
+               oi.unit_price,
+               oi.quantity - ifnull(occ.used_quantity, 0) as after_saleable_quantity
+        from shop_order o
+        join order_item oi on oi.order_id = o.id
+        left join (<include refid="afterSaleUsed"/>) occ on occ.order_item_id = oi.id
+        where o.user_id = #{userId}
+        order by o.id desc, oi.id
+    </select>
+
+    <select id="findItemContext" resultType="com.example.aftersales.dto.ItemContext">
+        select oi.id           as itemId,
+               oi.product_name as productName,
+               oi.color,
+               oi.size,
+               oi.quantity,
+               oi.unit_price   as unitPrice,
+               oi.quantity - ifnull(occ.used_quantity, 0) as afterSaleableQuantity,
+               o.id            as orderId,
+               o.order_no      as orderNo,
+               o.status        as orderStatus,
+               o.user_id       as orderUserId,
+               o.completed_at  as completedAt,
+               o.after_sale_days as afterSaleDays
+        from order_item oi
+        join shop_order o on o.id = oi.order_id
+        left join (<include refid="afterSaleUsed"/>) occ on occ.order_item_id = oi.id
+        where oi.id = #{itemId}
+    </select>
+
+</mapper>
