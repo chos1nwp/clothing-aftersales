@@ -26,7 +26,7 @@
 | 售后客服 | `detail.html?id=` 审核与结论 | `POST /api/staff/aftersales/{id}/review\|finalize`、`GET /api/staff/aftersales/{id}/timeline` | `aftersales_order`、`aftersales_action_log` |
 | 仓库 刘伟 `wh01` | `warehouse-workbench.html` 仓库工作台（4 个页签） | `GET /api/staff/aftersales?status=`（页签自己传状态，不带状态即全部） | `aftersales_order` + `warehouse_record`（批量带出） |
 | 仓库 | `detail.html?id=` 收货与验货 | `POST /api/staff/aftersales/{id}/receive\|inspect` | `warehouse_record`、`aftersales_action_log` |
-| 全部岗位 | `index.html` 登录 | `POST /api/auth/login`、`POST /api/auth/logout`、`GET /api/auth/current` | `app_user` |
+| 全部岗位 | `index.html` 登录 | `POST /api/auth/login`、`POST /api/auth/logout`、`GET /api/auth/me` | `app_user` |
 
 会话用 `HttpSession`，权限由 `@RequireRole` + `AuthInterceptor` 在服务端判定；页面只是**不显示**无权按钮，接口仍然独立拦截（见第七章越权测试）。
 

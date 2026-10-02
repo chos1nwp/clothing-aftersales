@@ -350,6 +350,10 @@ LEAK=$(printf '%s\n%s\n' "$(message <<< "$R")" "$(get $CJ /api/aftersales/abc | 
 let s=require("fs").readFileSync(0,"utf8");
 process.stdout.write(s.includes("Exception") ? "leaked" : "clean");')
 check_eq "G5 返回给浏览器的提示里不含异常类名" clean "$LEAK"
+# /api/auth/current 是本次写联调文档时敲错的一个地址，留下它作为「404 不能报成 500」的样本
+R=$(raw /api/auth/current)
+check_eq "G6 不存在的接口地址返回 404 而不是 500" 404 "$(echo "$R" | code)"
+check_has "G7 提示说明是地址不存在，不是服务故障" "不存在" "$(echo "$R" | message)"
 
 step "验收结果"
 echo "  通过 $pass 项，失败 $fail 项"
