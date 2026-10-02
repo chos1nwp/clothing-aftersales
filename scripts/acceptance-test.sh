@@ -286,12 +286,16 @@ CONCDIR=$(mktemp -d)
 wait
 E1C1=$(code < "$CONCDIR/cs01")
 E1C2=$(code < "$CONCDIR/cs02")
-SUM=$((E1C1 + E1C2))
-check_eq "E1 两名客服同时同意退回，只有一份写入成功（0+409）" 409 "$SUM"
+# 空响应或坏 JSON 会让取值变成空串，而 $(( )) 把空串当 0 —— 那样「没读到结果」会被蒙成「409+0」。
+# 先断言两边都解析出了数字码，失败时能一眼看出是取证环节断了，不是并发规则松了。
+check_eq "E1a 两个并发响应都解析出了数字业务码" 1 \
+  "$(node -e 'let v=require("fs").readFileSync(0,"utf8").trim().split(/\s+/);process.stdout.write(v.length===2&&v.every(x=>/^\d+$/.test(x))?"1":"0");' <<< "$E1C1 $E1C2")"
+LOSERSLOT="$CONCDIR/cs$([ "$E1C1" = "0" ] && echo 02 || echo 01)"
+check_eq "E1 两名客服同时同意退回，只有一份写入成功（0+409）" 409 "$((E1C1 + E1C2))"
 check_eq "E2 同意退回的动作只记录一次" 1 \
   "$(db "select count(*) from aftersales_action_log where aftersales_id=1 and action='APPROVE_RETURN';")"
 check_eq "E3 并发后状态只前进了一步" WAIT_RETURN "$(db "select status from aftersales_order where id=1;")"
-check_has "E4 失败的一方拿到可理解的冲突提示" "其他客服" "$(message < "$CONCDIR/cs$([ "$E1C1" = "0" ] && echo 02 || echo 01)")"
+check_has "E4 失败的一方拿到可理解的冲突提示" "其他客服" "$(message < "$LOSERSLOT")"
 rm -rf "$CONCDIR"
 
 R=$(get $ZJ /api/aftersales/$IDA)
