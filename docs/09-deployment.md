@@ -150,7 +150,7 @@ bash scripts/acceptance-test.sh && bash scripts/flow-demo.sh && SKIP_RESET=1 bas
 # 2) 文档里的接口路径逐个复核（第九章实测就是这样抓到 D-12/D-13 的）
 # 3) 凭据不入库
 git status --short --untracked-files=all
-git diff --cached | grep -cE '<口令特征>'      # 必须为 0
+git diff --cached | grep -cE '<口令特征>'      # 输出必须是 0；注意 grep 无匹配时退出码是 1，看数字不看退出码
 # 4) 差异复核（看有没有不相干的行被删）
 git show <commit> --stat && git show <commit> -- src/main/resources/application.properties
 ```
