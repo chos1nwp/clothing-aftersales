@@ -12,6 +12,7 @@
 | 版本号 | `pom.xml` 中 `1.0.0`，产物 `target/clothing-aftersales-1.0.0.jar` |
 | 固定内容 | 源码 + `sql/` 三个脚本 + `scripts/` 三个验证脚本 + `docs/` 九份文档 + `README.md` |
 | 不入库 | `application-local.properties`、`.mysql-pass`、`.mysql-app-pass`、`target/`、`uploads/`（`.gitignore`） |
+| 发布前脱敏 | 全历史扫描确认无数据库口令、令牌与私钥；提交作者邮箱改为 GitHub noreply 后重写元数据，提交号全部变更（详见 `docs/05` §3） |
 
 核对与复现某个发布版本：
 
